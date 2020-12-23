@@ -72,15 +72,15 @@ jobs:
         working-directory: ./
         run: '(test ! -f packages.json && echo No packages file found.) || npm install'
 
-      # If codeception is defined, get assets for testing.
-      - name: Conditionally setting up CodeCeption
-        working-directory: ./tests
-        run: '(test ! -f composer.json && echo No test framework found.) || composer validate && composer install --no-progress'
-
       # Run a PHP syntax check using our preferred PHP distribution.
       - name: PHP Syntax check
         working-directory: ./public
         run: php -v && find . \( -name '*.php' \) -exec php -lf {} \;
+
+      # If codeception is defined, get assets for testing.
+      - name: Conditionally setting up CodeCeption
+        working-directory: ./tests
+        run: '(test ! -f composer.json && echo No test framework found.) || composer validate && composer install --no-progress'
 
       # Run WordPress' coding standards security tests on the entire project.
       - name: WPCS Security tests
