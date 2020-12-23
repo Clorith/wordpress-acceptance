@@ -1,0 +1,29 @@
+{
+    "name": "dss-web/nettsteder-build-tools-tests",
+    "description": "Test framework for dss-web deployments",
+    "type": "project",
+    "require": {
+        "lucatume/wp-browser": "2.6",
+        "codeception/module-asserts": "^1.0",
+        "codeception/module-phpbrowser": "^1.0",
+        "codeception/module-webdriver": "^1.0",
+        "codeception/module-filesystem": "^1.0",
+        "codeception/module-cli": "^1.0",
+        "codeception/util-universalframework": "^1.0",
+        "wp-coding-standards/wpcs": "^2.3",
+        "dealerdirect/phpcodesniffer-composer-installer": "^0.7.0"
+    },
+    "license": "GPL-3.0-or-later",
+    "scripts": {
+        "codecept": [
+            "codecept run acceptance"
+        ],
+        "phpcs": [
+            "Composer\\Config::disableProcessTimeout",
+            "phpcs -d memory_limit=-1 --report-file=./phpcs.log"
+        ],
+        "make-test": [
+            "codecept g:cest acceptance"
+        ]
+    }
+}

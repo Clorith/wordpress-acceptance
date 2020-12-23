@@ -1,0 +1,157 @@
+name: Pull Request CI Test
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  tests:
+    name: Test complete build
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the source, this is always the first step.
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      # Set up PHP to our liking for use with WordPress, and to match the live environment.
+      - name: Setup PHP environment
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.3'
+          tools: composer:v1
+
+      # Add the servers IP to the host entry, this allows tests to use a "real" URL.
+      - name: Add server hosts
+        run: |
+          export APP_IP=`ip addr show eth0 | grep -Po 'inet \K[\d.]+'`
+          sudo echo "$APP_IP testsite.local" | sudo tee -a /etc/hosts
+
+      # Install WP-CLI to help with building the test scenarios and preparing the test site.
+      - name: Setup WP-CLI
+        run: |
+          curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          php wp-cli.phar --info
+          chmod +x wp-cli.phar
+          sudo mv wp-cli.phar /usr/local/bin/wp
+
+      # Print all used versions, handy when debugging.
+      - name: Versions
+        run: |
+          mysql --version
+          php --version
+          node --version
+          npm --version
+          composer --version
+          wp --version
+
+      # Create cache locations that work across action containers to speed up testing if and when possible.
+      - name: Cache composer dependencies
+        uses: actions/cache@v1
+        with:
+          path: ~/.composer/cache
+          key: dependencies-composer-${{ hashFiles('composer.lock') }}
+
+      - name: Cache node dependencies
+        uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: dependencies-composer-${{ hashFiles('package-lock.json') }}
+
+      # Setup SSH keys for accessing private repositories
+      - name: SSH Key configuration
+        uses: webfactory/ssh-agent@v0.4.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # If the project includes any composer dependencies, install them now.
+      - name: Conditionally setting up composer
+        working-directory: ./
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+        run: '(test ! -f composer.json && echo No composer file found.) || composer validate && composer install --no-progress'
+
+      # If the project includes any node packages, install them now.
+      - name: Conditionally setting up NPM
+        working-directory: ./
+        run: '(test ! -f packages.json && echo No packages file found.) || npm install'
+
+      # If codeception is defined, get assets for testing.
+      - name: Conditionally setting up CodeCeption
+        working-directory: ./tests
+        run: '(test ! -f composer.json && echo No test framework found.) || composer validate && composer install --no-progress'
+
+      # Run a PHP syntax check using our preferred PHP distribution.
+      - name: PHP Syntax check
+        working-directory: ./public
+        run: php -v && find . \( -name '*.php' \) -exec php -lf {} \;
+
+      # Run WordPress' coding standards security tests on the entire project.
+      - name: WPCS Security tests
+        working-directory: ./tests
+        run: composer run phpcs
+
+      # Start the MySQL service on the action container.
+      - name: Start MySQL Service
+        run: sudo /etc/init.d/mysql start
+
+      # For testing purposes, a local PHP server works great.
+      - name: Run PHP webserver
+        run: |
+          export APP_IP=`ip addr show eth0 | grep -Po 'inet \K[\d.]+'`
+          php -S 0.0.0.0:8888 -t ./public/ &> php.log.txt &
+          sleep 2;
+
+      # Make sure the PHP webserver is running before continuing.
+      - name: Test PHP webserver is active
+        run: |
+          export APP_IP=`ip addr show eth0 | grep -Po 'inet \K[\d.]+'`
+          curl "$APP_IP:8888"
+
+      # Create a database for our test site.
+      - name: Setup database
+        run: |
+          mysql -u root -proot -e "CREATE DATABASE test"
+          mysql -u root -proot -e "GRANT ALL PRIVILEGES on test.* TO db_user@localhost IDENTIFIED BY 'db_pass'";
+
+      # Install the WordPress test site, this creates the expected database entries.
+      - name: Setup WordPress
+        working-directory: ./public
+        run: |
+          wp core install --url=testsite.local:8888 --title=Testsite --admin_user=admin_user --admin_password=admin_password --admin_email=github@actions.localhost --skip-email
+
+      # A test site needs all available plugins to be running, this "accounts" for conflicts between plugins or themes.
+      - name: Activate all WordPress plugins
+        working-directory: ./public
+        run: |
+          wp plugin activate --all
+
+      # Import test data from post files.
+      - name: Create WordPress testdata
+        working-directory: ./public
+        run: |
+          php ../tests/wp-cli-setup-posts.php
+
+      # Run the actual acceptance tests.
+      - name: Run Acceptance Tests
+        working-directory: ./tests
+        run: |
+          composer run codecept
+
+      # If a failure happened, upload the php log to the actions artifact section for checking.
+      - name: Upload PHP log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: php-log
+          path: php.log.txt
+
+      # If a failure happened, upload the PHPCS log to the actions artifact section for checking.
+      - name: Upload PHPCS log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v2
+        working-directory: ./tests
+        with:
+          name: phpcs-log
+          path: phpcs.log

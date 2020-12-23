@@ -1,0 +1,56 @@
+{
+  "name": "clorith/wordpress-acceptance",
+  "type": "project",
+  "license": "GPL-3.0-or-later",
+  "minimum-stability": "stable",
+  "description": "Version and deploy full sites",
+  "config": {
+    "preferred-install": "dist",
+    "secure-http": false
+  },
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "https://wpackagist.org"
+    }
+  ],
+  "require": {
+    "php": ">=7.3",
+    "composer/installers": "~1.9.0",
+    "johnpbloch/wordpress": "~5.4.2",
+    "inpsyde/wp-translation-downloader": "~1.1.3",
+    "symfony/dotenv": "^5.0",
+    "wpackagist-plugin/akismet": "~4.1.6",
+    "wpackagist-plugin/classic-editor": "~1.6.0",
+    "wpackagist-plugin/unsplash": "~1.0.1",
+    "wpackagist-plugin/wordpress-seo": "~14.8.0",
+    "wpackagist-plugin/redis-cache": "~2.0.15"
+  },
+  "require-dev": {},
+  "extra": {
+    "wordpress-install-dir": "public/wp",
+    "installer-paths": {
+      "public/content/mu-plugins/{$name}/": [ "type:wordpress-muplugin" ],
+      "public/content/plugins/{$name}/": [ "type:wordpress-plugin" ],
+      "public/content/themes/{$name}/": [ "type:wordpress-theme" ]
+    },
+    "wp-translation-downloader": {
+      "languages": [
+        "nb_NO"
+      ],
+      "directory": "public/content/languages"
+    }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "rm -rf public/wp/wp-content",
+      "rm -rf public/wp/composer.json",
+      "rm -rf vendor/dss-web/dss-depkatalog",
+      "cp public/content/plugins/redis-cache/includes/object-cache.php public/content/object-cache.php",
+      "cp public/content/plugins/wordpress-mu-domain-mapping/sunrise.php public/content/sunrise.php"
+    ],
+    "build-deps": [
+      "cd "
+    ]
+  }
+}

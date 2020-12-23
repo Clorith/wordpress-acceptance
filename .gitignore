@@ -1,0 +1,21 @@
+*.log
+*.sassc
+.sass-cache
+.DS_Store
+.idea
+.cache-loader
+phpcs.xml
+
+node_modules
+vendor
+wp
+
+# Content directory
+public/content
+!public/content/mu-plugins/register-theme-directory.php
+
+# Dotenv
+.env
+.env.*
+!.env.example
+!tests/.env.testing
