@@ -111,6 +111,12 @@ jobs:
           mysql -u root -proot -e "CREATE DATABASE test"
           mysql -u root -proot -e "GRANT ALL PRIVILEGES on test.* TO db_user@localhost IDENTIFIED BY 'db_pass'";
 
+      # Remove redis from test actions
+      - name: Remove non-test friendly assets
+        working-directory: ./public
+        run: |
+          rm -rf content/object-cache.php
+
       # Install the WordPress test site, this creates the expected database entries.
       - name: Setup WordPress
         working-directory: ./public
