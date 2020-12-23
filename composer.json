@@ -46,8 +46,7 @@
       "rm -rf public/wp/wp-content",
       "rm -rf public/wp/composer.json",
       "rm -rf vendor/dss-web/dss-depkatalog",
-      "cp public/content/plugins/redis-cache/includes/object-cache.php public/content/object-cache.php",
-      "cp public/content/plugins/wordpress-mu-domain-mapping/sunrise.php public/content/sunrise.php"
+      "cp public/content/plugins/redis-cache/includes/object-cache.php public/content/object-cache.php"
     ],
     "build-deps": [
       "cd "

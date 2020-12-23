@@ -1,0 +1,75 @@
+name: Release CD
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  # Setup dependencies and fetch packages used by the project.
+  setup:
+    name: Deploy stable tag
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the source, this is always the first step.
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      # Set up PHP to our liking for use with WordPress, and to match the live environment.
+      - name: Setup PHP environment
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.3'
+          tools: composer:v1
+
+      # Print all used versions, handy when debugging.
+      - name: Versions
+        run: |
+          php --version
+          node --version
+          npm --version
+          composer --version
+
+      # Create cache locations that work across action containers to speed up testing if and when possible.
+      - name: Cache composer dependencies
+        uses: actions/cache@v1
+        with:
+          path: ~/.composer/cache
+          key: dependencies-composer-${{ hashFiles('composer.lock') }}
+
+      - name: Cache node dependencies
+        uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: dependencies-composer-${{ hashFiles('package-lock.json') }}
+
+      # Setup SSH keys for accessing private repositories
+      # Uncomment these lines if you need to define SSH keys for your deployment
+      #- name: SSH Key configuration
+      #  uses: webfactory/ssh-agent@v0.4.1
+      #  with:
+      #    ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # If the project includes any composer dependencies, install them now.
+      - name: Conditionally setting up composer
+        working-directory: ./
+        # Add composer auth to your SECRETS if needed to pull in private packages.
+        #env:
+        #  COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+        run: '(test ! -f composer.json && echo No composer file found.) || composer validate && composer install --no-progress'
+
+      # If the project includes any node packages, install them now.
+      - name: Conditionally setting up NPM
+        working-directory: ./
+        run: '(test ! -f packages.json && echo No packages file found.) || npm install'
+
+      # Cleanup removes files not wanted in the final production build.
+      - name: Remove unwanted files
+        working-directory: ./
+        run: |
+          rm -rf .github/
+          rm -rf tests/
+          rm -rf .env.example
+          rm -rf .gitignore
+
+      # Your preferred way of deploying here

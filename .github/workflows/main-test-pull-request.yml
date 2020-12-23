@@ -59,17 +59,12 @@ jobs:
           path: ~/.npm
           key: dependencies-composer-${{ hashFiles('package-lock.json') }}
 
-      # Setup SSH keys for accessing private repositories
-      - name: SSH Key configuration
-        uses: webfactory/ssh-agent@v0.4.1
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
       # If the project includes any composer dependencies, install them now.
       - name: Conditionally setting up composer
         working-directory: ./
-        env:
-          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+        # Add composer auth to your SECRETS if needed to pull in private packages.
+        #env:
+        #  COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
         run: '(test ! -f composer.json && echo No composer file found.) || composer validate && composer install --no-progress'
 
       # If the project includes any node packages, install them now.
@@ -77,19 +72,20 @@ jobs:
         working-directory: ./
         run: '(test ! -f packages.json && echo No packages file found.) || npm install'
 
-      # If codeception is defined, get assets for testing.
-      - name: Conditionally setting up CodeCeption
-        working-directory: ./tests
-        run: '(test ! -f composer.json && echo No test framework found.) || composer validate && composer install --no-progress'
-
       # Run a PHP syntax check using our preferred PHP distribution.
       - name: PHP Syntax check
         working-directory: ./public
         run: php -v && find . \( -name '*.php' \) -exec php -lf {} \;
 
+      # If codeception is defined, get assets for testing.
+      - name: Conditionally setting up CodeCeption
+        working-directory: ./tests
+        run: '(test ! -f composer.json && echo No test framework found.) || composer validate && composer install --no-progress'
+
       # Run WordPress' coding standards security tests on the entire project.
       - name: WPCS Security tests
         working-directory: ./tests
+        continue-on-error: true
         run: composer run phpcs
 
       # Start the MySQL service on the action container.
@@ -114,6 +110,12 @@ jobs:
         run: |
           mysql -u root -proot -e "CREATE DATABASE test"
           mysql -u root -proot -e "GRANT ALL PRIVILEGES on test.* TO db_user@localhost IDENTIFIED BY 'db_pass'";
+
+      # Remove redis from test actions
+      - name: Remove non-test friendly assets
+        working-directory: ./public
+        run: |
+          rm -rf content/object-cache.php
 
       # Install the WordPress test site, this creates the expected database entries.
       - name: Setup WordPress
@@ -151,7 +153,6 @@ jobs:
       - name: Upload PHPCS log
         if: ${{ failure() }}
         uses: actions/upload-artifact@v2
-        working-directory: ./tests
         with:
           name: phpcs-log
-          path: phpcs.log
+          path: ./tests/phpcs.log
